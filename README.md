@@ -11,4 +11,4 @@ mavenPassword=<PE-MAVEN-PASSWORD>
 
 ## How to use it in your code
 - Copy `PESoftPOSShim.kt` in your project and adjust the packge name
-- Use `runTransaction`  method from `SimpleView.kt` to create a logical flow of transaction  processing 
+- Use `runTransaction`  method from `SimpleView.kt` create a simple flow of transaction processing in your app
