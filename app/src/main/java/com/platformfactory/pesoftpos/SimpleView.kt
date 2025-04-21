@@ -58,10 +58,6 @@ fun SimpleView(modifier: Modifier = Modifier) {
             override val hideCardReadSuccessMessage: Boolean
                 get() = false
 
-            // Error formatter when card read error occur
-            override fun messageFormatter(code: kotlin.String, message: kotlin.String): String {
-                return "Please try again, holding your card steady near the reader"
-            }
         })
 
         PEPaymentDevice.setContext(context)
