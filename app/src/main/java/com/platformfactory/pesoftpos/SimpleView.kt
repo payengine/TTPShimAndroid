@@ -45,15 +45,23 @@ fun SimpleView(modifier: Modifier = Modifier) {
 
         PEPaymentDevice.setHost(PEHost.Sandbox)
         PEPaymentDevice.registerCustomization(object: PECustomization {
+            // Control retry
             override fun shouldRetryIfTimeout(): Boolean {
                 return true
             }
 
+            // Card read success message
             override val cardReadSuccessMessage: String
-                get() = "Card read successfully"
+                get() = "Done"
 
+            // Hide or show card read message
             override val hideCardReadSuccessMessage: Boolean
                 get() = false
+
+            // Error formatter when card read error occur
+            override fun messageFormatter(code: kotlin.String, message: kotlin.String): String {
+                return "Please try again, holding your card steady near the reader"
+            }
         })
 
         PEPaymentDevice.setContext(context)
@@ -62,18 +70,28 @@ fun SimpleView(modifier: Modifier = Modifier) {
             val isActivated = PESoftPOSShim.isActivated()
             if (!isActivated) {
                 val activationCode = PESoftPOSShim.getActivationCode()
+                // Use this code to activate merchant's device using backend API call
                 currentStatus = "Activation code: $activationCode"
                 transactionLoading = false
                 return
             }
 
-            // Initialize device
+            // Step 1. Read Error. Please try again, holding your card steady near the reader
             PESoftPOSShim.initializeDevice()
 
-            // Parse and create request
+            // Step 2. Parse and create request
             val decimalAmount = transactionAmount.toBigDecimalOrNull()
             if (decimalAmount != null) {
-                val request = PEPaymentRequest(transactionAmount = decimalAmount, currencyCode = "USD")
+                val request = PEPaymentRequest(transactionAmount = decimalAmount,
+                    transactionData = mapOf(
+                        "transactionMonitoringBypass" to true, // To by pass monitoring rules
+                        "data" to mapOf(
+                            "sales_tax" to "1.00", // Level 2 data
+                            "order_number" to "XXX123455", // Level 2 data
+                            "gateway_id" to "cea013fd-ac46-4e47-a2dc-a1bc3d89bf0c" // Route to specific gateway - Change it to valid gateway ID
+                        )
+                    ),
+                    currencyCode = "USD")
 
                 // Run transaction
                 val result = PESoftPOSShim.startTransaction(request)
@@ -86,7 +104,7 @@ fun SimpleView(modifier: Modifier = Modifier) {
         } finally {
             transactionLoading = false
             println(currentStatus)
-//            PESoftPOSShim.deinitialize()
+            //PESoftPOSShim.deinitialize()
         }
     }
 
