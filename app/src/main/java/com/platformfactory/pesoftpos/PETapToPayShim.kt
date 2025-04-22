@@ -16,6 +16,7 @@ import java.util.logging.Logger
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
+
 /**
  * A thin suspend‑style shim around PayEngine's Android SDK.
  * Mirrors the Swift `PETapToPayShim`, including activation checks.
@@ -28,10 +29,10 @@ sealed class PETapError : Throwable() {
     data class ActivationRequired(val code: String) : PETapError()
 }
 
-object PESoftPOSShim {
-    private val logger: Logger = Logger.getLogger(PESoftPOSShim::class.java.name)
+object PETapToPayShim {
+    private val logger: Logger = Logger.getLogger(PETapToPayShim::class.java.name)
 
-    fun logMethodCall(vararg params: Any?) {
+    fun log(vararg params: Any?) {
         val stackTrace = Thread.currentThread().stackTrace
         // Index 3 usually refers to the caller of this function
         val callerElement = stackTrace.getOrNull(3)
@@ -41,7 +42,7 @@ object PESoftPOSShim {
 
         val paramStr = params.joinToString(", ") { it?.toString() ?: "null" }
 
-        logger.info("Called $className.$methodName with parameters: $paramStr")
+        logger.info("$className.$methodName logs: $paramStr")
     }
 
     // Hold onto our one InitDel and DeviceDel
@@ -54,7 +55,7 @@ object PESoftPOSShim {
      * If the SDK just signalled `onActivationRequired`, this returns that code.
      */
     suspend fun getActivationCode(): String = suspendCancellableCoroutine { cont ->
-        logMethodCall()
+        log()
         initDel = InitDel(activationCheckCont = null, activationCodeCont = cont)
         sdk.initialize(mode = TransactionMode.DEVICE, delegate = initDel!!)
         cont.invokeOnCancellation { initDel = null }
@@ -64,7 +65,7 @@ object PESoftPOSShim {
      * Returns `true` if initialization completed cleanly, `false` if activation is required.
      */
     suspend fun isActivated(): Boolean = suspendCancellableCoroutine { cont ->
-        logMethodCall()
+        log()
         initDel = InitDel(activationCheckCont = cont, activationCodeCont = null)
         sdk.initialize(mode = TransactionMode.DEVICE, delegate = initDel!!)
         cont.invokeOnCancellation { initDel = null }
@@ -75,14 +76,14 @@ object PESoftPOSShim {
      * @return the connected PEDevice
      */
     suspend fun initializeDevice(mode: TransactionMode = TransactionMode.DEVICE): PEDevice = suspendCancellableCoroutine { cont ->
-        logMethodCall()
+        log()
         deviceDel = DeviceDel(contConnect = cont)
         sdk.connect(deviceDel!!)
         cont.invokeOnCancellation {  }
     }
 
     fun deinitialize() {
-        logMethodCall()
+        log()
         sdk.deinitilize()
     }
 
@@ -90,7 +91,7 @@ object PESoftPOSShim {
      * Start a payment on the *shared* device and await its result.
      */
     suspend fun startTransaction(request: PEPaymentRequest): PEPaymentResult = suspendCancellableCoroutine { cont ->
-        logMethodCall(request)
+        log(request)
         // stash the txn continuation on our existing DeviceDel
         deviceDel?.txnCont?.cancel()
         deviceDel?.txnCont = cont
@@ -112,11 +113,11 @@ object PESoftPOSShim {
         override fun didLaunchEducationalScreen() {}
         override fun onEducationScreenDismissed() {}
         override fun onDeinitialized() {
-            logMethodCall()
+            log()
         }
 
         override fun onActivationRequired(activationCode: String) {
-            logMethodCall(activationCode)
+            log(activationCode)
             // signal activation required
             activationCheckCont?.resume(false)
             activationCodeCont?.resume(activationCode)
@@ -124,13 +125,15 @@ object PESoftPOSShim {
         }
 
         override fun onInitFailed(error: Error) {
-            logMethodCall(error)
+            log(error, activationCodeCont == null, activationCheckCont == null, cont == null)
+            activationCodeCont?.resumeWithException(error)
+            activationCheckCont?.resumeWithException(error)
             cont?.resumeWithException(PETapError.InitializationFailed(error))
             cleanup()
         }
 
         override fun onInitialized(availableDevices: List<PEDevice>) {
-            logMethodCall(availableDevices)
+            log(availableDevices)
 
             activationCheckCont?.let {
                 it.resume(true)
@@ -148,7 +151,7 @@ object PESoftPOSShim {
         }
 
         override fun onActivationStarting(terminalInfo: TerminalInfo) {
-            logMethodCall(terminalInfo)
+            log(terminalInfo)
         }
     }
 
@@ -160,23 +163,23 @@ object PESoftPOSShim {
         var txnCont: CancellableContinuation<PEPaymentResult>? = null
 
         override fun onConnected(device: PEDevice) {
-            logMethodCall()
+            log()
             contConnect?.resume(device)
         }
 
         override fun onConnectionFailed(device: PEDevice, error: Error) {
-            logMethodCall(device, error)
+            log(device, error)
             contConnect?.resumeWithException(PETapError.ConnectionFailed(device, error))
         }
 
         override fun onTransactionCompleted(transaction: PEPaymentResult) {
-            logMethodCall(transaction)
+            log(transaction)
             txnCont?.resume(transaction)
             txnCont = null
         }
 
         override fun onTransactionFailed(transaction: PEPaymentResult) {
-            logMethodCall(transaction)
+            log(transaction)
             logger.info("TxnCont is null ${txnCont == null}")
             txnCont?.resumeWithException(PETapError.TransactionFailed(transaction))
             txnCont = null
@@ -184,19 +187,19 @@ object PESoftPOSShim {
 
         // stubs for required callbacks we don't forward:
         override fun onDeviceDiscovered(device: DiscoverableDevice) {
-            logMethodCall()
+            log()
         }
         override fun onDiscoveringDevice(searching: Boolean) {
-            logMethodCall()
+            log()
         }
         override fun onLcdConfirmation(message: String) {
-            logMethodCall()
+            log()
         }
         override fun onLcdMessage(message: String) {
-            logMethodCall()
+            log()
         }
         override fun didStartAuthorization() {
-            logMethodCall()
+            log()
         }
 
         override fun onActivationProgress(device: PEDevice, completed: Int) {
@@ -204,12 +207,12 @@ object PESoftPOSShim {
         }
 
         override fun onCardRead(success: Boolean) {
-            logMethodCall()
+            log()
         }
     }
 
     private fun cleanup() {
-        logMethodCall()
+        log()
         initDel = null
     }
 }

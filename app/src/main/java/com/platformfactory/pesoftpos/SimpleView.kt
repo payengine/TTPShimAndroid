@@ -27,12 +27,47 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.payengine.devicepaymentsdk.PEPaymentDevice
 import com.payengine.devicepaymentsdk.interfaces.PECustomization
+import com.payengine.shared.PEError
 import com.payengine.shared.flavors.PEHost
 import com.payengine.shared.models.transaction.PEPaymentRequest
 import kotlinx.coroutines.launch
+import java.util.logging.Logger
+
+
+fun mapErrorCodeToMessage(code: String, message: String): String {
+    val errorCode = code.toIntOrNull() ?: return "$code: $message"
+
+    return when (errorCode) {
+        PEError.CODE_INVALID_MID -> "Invalid Merchant ID"
+        PEError.CODE_DISCONNECTED -> "Device was disconnected during operation"
+        PEError.CODE_VERSION_UNSUPPORTED -> "Device firmware version is not supported"
+        PEError.CODE_UNSUPPORTED_DEVICE -> "Connected device is not supported by the SDK"
+        PEError.CODE_USB_UNRECOGNIZED -> "USB device was not recognized by the system"
+        PEError.CODE_CONNECT_TIMEOUT -> "Connection attempt timed out"
+        PEError.CODE_NO_DEVICE_AVAILABLE -> "No payment device is available for connection"
+        PEError.CODE_DEVICE_NOT_CONNECTED -> "No device is currently connected"
+        PEError.CODE_CONNECTION_IN_PROGRESS -> "A connection attempt is already in progress"
+        PEError.CODE_INITIALIZATION_FAILED -> "SDK initialization failed: $message"
+        PEError.CODE_TRANSACTION_NOT_ALLOWED -> "Transaction is not allowed in the current state"
+        PEError.CODE_COMPANION_MODE_ONLY -> "Transaction requires Companion mode; device-initiated is not allowed"
+        PEError.CODE_TRANSACTION_IN_PROGRESS -> "Another transaction is already in progress"
+        PEError.CODE_UNSUPPORTED_TRANSACTION_TYPE -> "Requested transaction type is not supported"
+        PEError.CODE_TRANSACTION_FAILURE -> "General transaction processing failure"
+        PEError.CODE_CONTEXT_INVALID -> "Android context is invalid or destroyed"
+        PEError.CODE_INVALID_CURRENCY -> "Currency code is invalid or not supported"
+        PEError.CODE_SERVER_ERROR -> "Server communication error"
+        PEError.CODE_EMV_KERNEL_ERROR -> "EMV kernel processing error"
+        PEError.CODE_CARD_READER_ACTIVATION_ERROR -> "Card reader activation failed"
+        PEError.CODE_CARD_READER_TIMEOUT -> "Card reader timed out"
+        // handle other code
+        else -> "$code: $message"
+    }
+}
 
 @Composable
 fun SimpleView(modifier: Modifier = Modifier) {
+    val logger: Logger = Logger.getLogger("ShimScreen")
+
     var transactionAmount by remember { mutableStateOf("") }
     var transactionLoading by remember { mutableStateOf(false) }
     var currentStatus by remember { mutableStateOf("") }
@@ -58,14 +93,18 @@ fun SimpleView(modifier: Modifier = Modifier) {
             override val hideCardReadSuccessMessage: Boolean
                 get() = false
 
+            override fun cardReaderMessageMapper(code: String, message: String): String {
+                return mapErrorCodeToMessage(code, message)
+            }
+
         })
 
         PEPaymentDevice.setContext(context)
 
         try {
-            val isActivated = PESoftPOSShim.isActivated()
+            val isActivated = PETapToPayShim.isActivated()
             if (!isActivated) {
-                val activationCode = PESoftPOSShim.getActivationCode()
+                val activationCode = PETapToPayShim.getActivationCode()
                 // Use this code to activate merchant's device using backend API call
                 currentStatus = "Activation code: $activationCode"
                 transactionLoading = false
@@ -73,7 +112,7 @@ fun SimpleView(modifier: Modifier = Modifier) {
             }
 
             // Step 1. Read Error. Please try again, holding your card steady near the reader
-            PESoftPOSShim.initializeDevice()
+            PETapToPayShim.initializeDevice()
 
             // Step 2. Parse and create request
             val decimalAmount = transactionAmount.toBigDecimalOrNull()
@@ -90,17 +129,27 @@ fun SimpleView(modifier: Modifier = Modifier) {
                     currencyCode = "USD")
 
                 // Run transaction
-                val result = PESoftPOSShim.startTransaction(request)
+                val result = PETapToPayShim.startTransaction(request)
                 currentStatus =  "✅ Transaction succeeded: ${result.transactionId}"
             }
         } catch (e: PETapError.TransactionFailed) {
-            currentStatus =  "❌ Transaction failed: ${e.result.responseMessage}"
+            var message = e.result.responseMessage ?: e.message
+            if (e.result.error is PEError) {
+                message = mapErrorCodeToMessage((e.result.error as PEError).code.toString(), (e.result.error as PEError).message)
+            } else if (e.result.responseCode != null) {
+                message = mapErrorCodeToMessage(e.result.responseCode.toString(), e.result.responseMessage.toString())
+            }
+            currentStatus =  "❌ Transaction failed: $message"
         } catch (e: Throwable) {
-            currentStatus =  "❌ PE Flow failed: $e"
+            var message = e.message
+            if (e is PEError) {
+                message = mapErrorCodeToMessage(e.code.toString(), e.message)
+            }
+            currentStatus =  "❌ PE Flow failed: $message"
         } finally {
             transactionLoading = false
             println(currentStatus)
-            //PESoftPOSShim.deinitialize()
+            PETapToPayShim.deinitialize()
         }
     }
 
