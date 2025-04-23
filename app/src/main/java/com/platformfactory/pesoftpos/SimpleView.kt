@@ -27,6 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.payengine.devicepaymentsdk.PEPaymentDevice
 import com.payengine.devicepaymentsdk.interfaces.PECustomization
+import com.payengine.shared.PEError
 import com.payengine.shared.flavors.PEHost
 import com.payengine.shared.models.transaction.PEPaymentRequest
 import kotlinx.coroutines.launch
@@ -57,6 +58,32 @@ fun SimpleView(modifier: Modifier = Modifier) {
             // Hide or show card read message
             override val hideCardReadSuccessMessage: Boolean
                 get() = false
+
+            // Override card read error message
+            override fun cardReaderMessageMapper(code: Int, message: String): String {
+                return when (code) {
+                    PEError.CardError.CODE_EMV_KERNEL_NOT_AVAILABLE -> "No compatible EMV kernel found."
+                    PEError.CardError.CODE_EMV_NFC_PERMISSION_MISS -> "NFC permission is missing. Please enable it in your settings."
+                    PEError.CardError.CODE_EMV_NFC_CAMERA_PERMISSION_MISS -> "Camera permission is required for this transaction."
+                    PEError.CardError.CODE_EMV_NFC_NETWORK_UNCONNECTTED -> "No network connection. Please check your internet."
+                    PEError.CardError.CODE_EMV_NFC_DISABLED -> "NFC is disabled. Please enable it to continue."
+                    PEError.CardError.CODE_EMV_ADB_ENABLED -> "Developer mode is enabled. Please disable ADB for security."
+                    PEError.CardError.CODE_EMV_SIDE_LOADED -> "App was side-loaded. Please install from the official store."
+                    PEError.CardError.CODE_ERR_USERCANCEL -> "The transaction was cancelled by the user."
+                    PEError.CardError.CODE_ERR_TIMEOUT -> "The transaction timed out. Please try again."
+                    PEError.CardError.CODE_ERR_NOTACCEPT -> "The card issuer did not accept the transaction."
+                    PEError.CardError.CODE_ERR_APPEXP -> "The card has expired."
+                    PEError.CardError.CODE_ERR_BLACKLIST -> "This card is blacklisted and cannot be used."
+                    PEError.CardError.CODE_ERR_TRANSEXCEEDED -> "Transaction amount exceeds the contactless limit."
+                    PEError.CardError.CODE_ERR_NOAMT -> "No amount was entered for the transaction."
+                    PEError.CardError.CODE_ERR_PINBLOCK -> "The PIN is blocked. Please contact your bank."
+                    PEError.CardError.CODE_ERR_NOTALLOWED -> "This card is not allowed for the transaction."
+                    PEError.CardError.CODE_ERR_SEE_PHONE -> "Please follow instructions on your phone screen."
+                    PEError.CardError.CODE_AMEX_EMV_TRANS_ERROR -> "AMEX transaction declined."
+                    PEError.CardError.CODE_DISCOVER_EMV_KERNEL_DECLINED -> "Discover transaction declined."
+                    else -> "Error code $code: $message"
+                }
+            }
 
         })
 
@@ -94,7 +121,7 @@ fun SimpleView(modifier: Modifier = Modifier) {
                 currentStatus =  "✅ Transaction succeeded: ${result.transactionId}"
             }
         } catch (e: PETapError.TransactionFailed) {
-            currentStatus =  "❌ Transaction failed: ${e.result.responseMessage}"
+            currentStatus =  "❌ Transaction failed: ${e.result.responseMessage ?: e.result.error?.message}"
         } catch (e: Throwable) {
             currentStatus =  "❌ PE Flow failed: $e"
         } finally {
