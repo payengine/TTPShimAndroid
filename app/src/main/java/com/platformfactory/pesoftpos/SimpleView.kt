@@ -27,6 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.payengine.devicepaymentsdk.PEPaymentDevice
 import com.payengine.devicepaymentsdk.interfaces.PECustomization
+import com.payengine.shared.PEError
 import com.payengine.shared.flavors.PEHost
 import com.payengine.shared.models.transaction.PEPaymentRequest
 import kotlinx.coroutines.launch
@@ -58,6 +59,20 @@ fun SimpleView(modifier: Modifier = Modifier) {
             override val hideCardReadSuccessMessage: Boolean
                 get() = false
 
+            // Customize card read error messages
+            override fun cardReaderMessageMapper(code: Int, message: String): String {
+                // List of potential errors available here in case more granular handing is needed
+                // https://payengine.github.io/payengine-softpos-sdk-documentation/android/version/1.1.2/-pay-engine%20-soft-p-o-s%20-s-d-k%20-documentation/com.payengine.shared/-p-e-error/-card-read-error/index.html
+
+                return when (code) {
+                    // NFC not available
+                    PEError.CardReadError.CODE_EMV_NFC_PERMISSION_MISS,
+                    PEError.CardReadError.CODE_EMV_NFC_DISABLED -> "NFC is disabled. Please enable NFC in your settings"
+
+                    else -> "There was an error reading the card. Please try again using a different card and ensure it is held still and close to the readers"
+                }
+            }
+
         })
 
         PEPaymentDevice.setContext(context)
@@ -82,9 +97,10 @@ fun SimpleView(modifier: Modifier = Modifier) {
                     transactionData = mapOf(
                         "transactionMonitoringBypass" to true, // To by pass monitoring rules
                         "data" to mapOf(
-                            "sales_tax" to "1.00", // Level 2 data
-                            "order_number" to "XXX123455", // Level 2 data
-                            "gateway_id" to "cea013fd-ac46-4e47-a2dc-a1bc3d89bf0c" // Route to specific gateway - Change it to valid gateway ID
+                            "sales_tax" to "0.40", // Level 2 data
+                            "order_number" to "ORD123455", // Level 2 data
+                            "internalTransactionID" to "A1234545",
+                            //"gateway_id" to "cea013fd-ac46-4e47-a2dc-a1bc3d89bf0c" // Route to specific gateway - Change it to valid gateway ID
                         )
                     ),
                     currencyCode = "USD")
@@ -94,7 +110,7 @@ fun SimpleView(modifier: Modifier = Modifier) {
                 currentStatus =  "✅ Transaction succeeded: ${result.transactionId}"
             }
         } catch (e: PETapError.TransactionFailed) {
-            currentStatus =  "❌ Transaction failed: ${e.result.responseMessage}"
+            currentStatus =  "❌ Transaction failed: ${e.result.responseMessage ?: e.result.error?.message}"
         } catch (e: Throwable) {
             currentStatus =  "❌ PE Flow failed: $e"
         } finally {
