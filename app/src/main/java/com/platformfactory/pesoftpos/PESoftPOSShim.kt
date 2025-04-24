@@ -83,7 +83,7 @@ object PESoftPOSShim {
 
     fun deinitialize() {
         logMethodCall()
-        sdk.deinitilize()
+        sdk.deinitialize()
     }
 
     /**
@@ -96,7 +96,7 @@ object PESoftPOSShim {
         deviceDel?.txnCont = cont
         sdk.startTransaction(request, transactionResultFragment = object: PETransactionResultFragment {
             override fun onDismissed() {
-                logger.info("onDismissed")
+                logMethodCall()
             }
         })
         cont.invokeOnCancellation { deviceDel?.txnCont = null }

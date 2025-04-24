@@ -27,6 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.payengine.devicepaymentsdk.PEPaymentDevice
 import com.payengine.devicepaymentsdk.interfaces.PECustomization
+import com.payengine.shared.PECardReadError
 import com.payengine.shared.PEError
 import com.payengine.shared.flavors.PEHost
 import com.payengine.shared.models.transaction.PEPaymentRequest
@@ -59,20 +60,19 @@ fun SimpleView(modifier: Modifier = Modifier) {
             override val hideCardReadSuccessMessage: Boolean
                 get() = false
 
-            // Customize card read error messages
-            override fun cardReaderMessageMapper(code: Int, message: String): String {
-                // List of potential errors available here in case more granular handing is needed
-                // https://payengine.github.io/payengine-softpos-sdk-documentation/android/version/1.1.2/-pay-engine%20-soft-p-o-s%20-s-d-k%20-documentation/com.payengine.shared/-p-e-error/-card-read-error/index.html
+            override fun errorFormatter(error: PEError): String {
+                if (error is PECardReadError){
+                    return when (error.code) {
+                        // NFC not available
+                        PECardReadError.CODE_EMV_NFC_PERMISSION_MISS,
+                        PECardReadError.CODE_EMV_NFC_DISABLED -> "NFC is disabled. Please enable NFC in your settings"
+                        PECardReadError.CODE_ERR_USERCANCEL -> "Transaction cancelled"
 
-                return when (code) {
-                    // NFC not available
-                    PEError.CardReadError.CODE_EMV_NFC_PERMISSION_MISS,
-                    PEError.CardReadError.CODE_EMV_NFC_DISABLED -> "NFC is disabled. Please enable NFC in your settings"
-
-                    else -> "There was an error reading the card. Please try again using a different card and ensure it is held still and close to the readers"
+                        else -> "There was an error reading the card. Please try again using a different card and ensure it is held still and close to the readers"
+                    }
                 }
+                return error.message
             }
-
         })
 
         PEPaymentDevice.setContext(context)
@@ -116,7 +116,7 @@ fun SimpleView(modifier: Modifier = Modifier) {
         } finally {
             transactionLoading = false
             println(currentStatus)
-            //PESoftPOSShim.deinitialize()
+            PESoftPOSShim.deinitialize()
         }
     }
 
