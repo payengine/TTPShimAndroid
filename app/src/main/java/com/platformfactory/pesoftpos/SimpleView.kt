@@ -29,9 +29,11 @@ import com.payengine.devicepaymentsdk.PEPaymentDevice
 import com.payengine.devicepaymentsdk.interfaces.PECustomization
 import com.payengine.shared.PECardReadError
 import com.payengine.shared.PEError
+import com.payengine.shared.flavors.FlavorInterface
 import com.payengine.shared.flavors.PEHost
 import com.payengine.shared.models.transaction.PEPaymentRequest
 import kotlinx.coroutines.launch
+
 
 @Composable
 fun SimpleView(modifier: Modifier = Modifier) {
@@ -45,7 +47,12 @@ fun SimpleView(modifier: Modifier = Modifier) {
     suspend fun runTransaction(transactionAmount: String) {
         transactionLoading = true
 
-        PEPaymentDevice.setHost(PEHost.Sandbox)
+        val stHost = PEPaymentDevice.newHost(object : FlavorInterface {
+            override val wssHostname: String get() = "ws.payengine-st.com"
+            override val apiHostname: String get() = "gateway.payengine-st.com"
+        })
+
+        PEPaymentDevice.setHost(stHost)
         PEPaymentDevice.registerCustomization(object: PECustomization {
             // Control retry
             override fun shouldRetryIfTimeout(): Boolean {
@@ -97,7 +104,7 @@ fun SimpleView(modifier: Modifier = Modifier) {
                     transactionData = mapOf(
                         "transactionMonitoringBypass" to true, // To by pass monitoring rules
                         "data" to mapOf(
-                            "sales_tax" to "0.40", // Level 2 data
+                            "sales_tax" to "0.1", // Level 2 data
                             "order_number" to "ORD123455", // Level 2 data
                             "internalTransactionID" to "A1234545",
                             //"gateway_id" to "cea013fd-ac46-4e47-a2dc-a1bc3d89bf0c" // Route to specific gateway - Change it to valid gateway ID
