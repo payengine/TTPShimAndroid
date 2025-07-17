@@ -48,8 +48,8 @@ fun SimpleView(modifier: Modifier = Modifier) {
         transactionLoading = true
 
         val stHost = PEPaymentDevice.newHost(object : FlavorInterface {
-            override val wssHostname: String get() = "ws.payengine-st.com"
-            override val apiHostname: String get() = "gateway.payengine-st.com"
+            override val wssHostname: String get() = "ws.st-staging-live.payengine.dev"
+            override val apiHostname: String get() = "console.st-staging-live.payengine.dev"
         })
 
         PEPaymentDevice.setHost(stHost)
@@ -74,8 +74,8 @@ fun SimpleView(modifier: Modifier = Modifier) {
                         PECardReadError.CODE_EMV_NFC_PERMISSION_MISS,
                         PECardReadError.CODE_EMV_NFC_DISABLED -> "NFC is disabled. Please enable NFC in your settings"
                         PECardReadError.CODE_ERR_USERCANCEL -> "Transaction cancelled"
-
-                        else -> "There was an error reading the card. Please try again using a different card and ensure it is held still and close to the readers"
+                        else -> "${error.code} ${error.message}"
+//                        else -> "There was an error reading the card. Please try again using a different card and ensure it is held still and close to the readers"
                     }
                 }
                 return error.message
