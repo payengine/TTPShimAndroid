@@ -28,6 +28,8 @@ sealed class PETapError : Throwable() {
     data class ActivationRequired(val code: String) : PETapError()
 }
 
+const val BANNER_NAME = "Test Banner Name"
+
 object PESoftPOSShim {
     private val logger: Logger = Logger.getLogger(PESoftPOSShim::class.java.name)
 
@@ -56,7 +58,7 @@ object PESoftPOSShim {
     suspend fun getActivationCode(): String = suspendCancellableCoroutine { cont ->
         logMethodCall()
         initDel = InitDel(activationCheckCont = null, activationCodeCont = cont)
-        sdk.initialize(mode = TransactionMode.DEVICE, delegate = initDel!!)
+        sdk.initialize(bannerName = BANNER_NAME, mode = TransactionMode.DEVICE, delegate = initDel!!)
         cont.invokeOnCancellation { initDel = null }
     }
 
@@ -66,7 +68,7 @@ object PESoftPOSShim {
     suspend fun isActivated(): Boolean = suspendCancellableCoroutine { cont ->
         logMethodCall()
         initDel = InitDel(activationCheckCont = cont, activationCodeCont = null)
-        sdk.initialize(mode = TransactionMode.DEVICE, delegate = initDel!!)
+        sdk.initialize(bannerName = BANNER_NAME, mode = TransactionMode.DEVICE, delegate = initDel!!)
         cont.invokeOnCancellation { initDel = null }
     }
 

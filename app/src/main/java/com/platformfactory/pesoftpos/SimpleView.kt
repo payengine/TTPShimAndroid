@@ -29,9 +29,11 @@ import com.payengine.devicepaymentsdk.PEPaymentDevice
 import com.payengine.devicepaymentsdk.interfaces.PECustomization
 import com.payengine.shared.PECardReadError
 import com.payengine.shared.PEError
+import com.payengine.shared.flavors.FlavorInterface
 import com.payengine.shared.flavors.PEHost
 import com.payengine.shared.models.transaction.PEPaymentRequest
 import kotlinx.coroutines.launch
+
 
 @Composable
 fun SimpleView(modifier: Modifier = Modifier) {
@@ -45,7 +47,12 @@ fun SimpleView(modifier: Modifier = Modifier) {
     suspend fun runTransaction(transactionAmount: String) {
         transactionLoading = true
 
-        PEPaymentDevice.setHost(PEHost.Sandbox)
+        val stHost = PEPaymentDevice.newHost(object : FlavorInterface {
+            override val wssHostname: String get() = "ws.st-staging-live.payengine.dev"
+            override val apiHostname: String get() = "console.st-staging-live.payengine.dev"
+        })
+
+        PEPaymentDevice.setHost(stHost)
         PEPaymentDevice.registerCustomization(object: PECustomization {
             // Control retry
             override fun shouldRetryIfTimeout(): Boolean {
@@ -67,8 +74,8 @@ fun SimpleView(modifier: Modifier = Modifier) {
                         PECardReadError.CODE_EMV_NFC_PERMISSION_MISS,
                         PECardReadError.CODE_EMV_NFC_DISABLED -> "NFC is disabled. Please enable NFC in your settings"
                         PECardReadError.CODE_ERR_USERCANCEL -> "Transaction cancelled"
-
-                        else -> "There was an error reading the card. Please try again using a different card and ensure it is held still and close to the readers"
+                        else -> "${error.code} ${error.message}"
+//                        else -> "There was an error reading the card. Please try again using a different card and ensure it is held still and close to the readers"
                     }
                 }
                 return error.message
@@ -97,7 +104,7 @@ fun SimpleView(modifier: Modifier = Modifier) {
                     transactionData = mapOf(
                         "transactionMonitoringBypass" to true, // To by pass monitoring rules
                         "data" to mapOf(
-                            "sales_tax" to "0.40", // Level 2 data
+                            "sales_tax" to "0.1", // Level 2 data
                             "order_number" to "ORD123455", // Level 2 data
                             "internalTransactionID" to "A1234545",
                             //"gateway_id" to "cea013fd-ac46-4e47-a2dc-a1bc3d89bf0c" // Route to specific gateway - Change it to valid gateway ID
