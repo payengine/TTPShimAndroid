@@ -1,5 +1,6 @@
 package com.platformfactory.pesoftpos
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -47,12 +48,13 @@ fun SimpleView(modifier: Modifier = Modifier) {
     suspend fun runTransaction(transactionAmount: String) {
         transactionLoading = true
 
-        val stHost = PEPaymentDevice.newHost(object : FlavorInterface {
-            override val wssHostname: String get() = "ws.st-staging-live.payengine.dev"
-            override val apiHostname: String get() = "console.st-staging-live.payengine.dev"
-        })
+//        val host = PEPaymentDevice.newHost(object : FlavorInterface {
+//            override val wssHostname: String get() = "ws.st-staging-live.payengine.dev"
+//            override val apiHostname: String get() = "console.st-staging-live.payengine.dev"
+//        })
+        val host = PEHost.Sandbox
 
-        PEPaymentDevice.setHost(stHost)
+        PEPaymentDevice.setHost(host)
         PEPaymentDevice.registerCustomization(object: PECustomization {
             // Control retry
             override fun shouldRetryIfTimeout(): Boolean {
@@ -96,6 +98,10 @@ fun SimpleView(modifier: Modifier = Modifier) {
 
             // Step 1. Read Error. Please try again, holding your card steady near the reader
             PESoftPOSShim.initializeDevice()
+
+            val terminalInfo = PESoftPOSShim.terminalInfo
+            print("Merchant ID: ${terminalInfo?.merchantId} - ${terminalInfo?.merchantName}")
+            Toast.makeText(context, "Merchant ID: ${terminalInfo?.merchantId}", Toast.LENGTH_LONG).show()
 
             // Step 2. Parse and create request
             val decimalAmount = transactionAmount.toBigDecimalOrNull()
