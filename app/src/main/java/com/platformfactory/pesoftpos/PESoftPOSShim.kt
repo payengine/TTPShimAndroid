@@ -76,7 +76,7 @@ object PESoftPOSShim {
      * Initialize + (optional) auto‑connect. Throws ActivationRequired if needed.
      * @return the connected PEDevice
      */
-    suspend fun initializeDevice(mode: TransactionMode = TransactionMode.DEVICE): PEDevice = suspendCancellableCoroutine { cont ->
+    suspend fun initializeDevice(): PEDevice = suspendCancellableCoroutine { cont ->
         logMethodCall()
         deviceDel = DeviceDel(contConnect = cont)
         sdk.connect(deviceDel!!)
@@ -87,6 +87,8 @@ object PESoftPOSShim {
         logMethodCall()
         sdk.deinitialize()
     }
+
+    var terminalInfo: TerminalInfo? = null
 
     /**
      * Start a payment on the *shared* device and await its result.
@@ -110,6 +112,7 @@ object PESoftPOSShim {
         private var activationCheckCont: CancellableContinuation<Boolean>? = null,
         private var activationCodeCont: CancellableContinuation<String>? = null
     ) : PEInitializationDelegate {
+
         override fun willLaunchEducationalScreen() {}
         override fun didLaunchEducationalScreen() {}
         override fun onEducationScreenDismissed() {}
@@ -151,6 +154,7 @@ object PESoftPOSShim {
 
         override fun onActivationStarting(terminalInfo: TerminalInfo) {
             logMethodCall(terminalInfo)
+            PESoftPOSShim.terminalInfo = terminalInfo
         }
     }
 
