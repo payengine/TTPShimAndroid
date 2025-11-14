@@ -52,7 +52,7 @@ fun SimpleView(modifier: Modifier = Modifier) {
             override val apiHostname: String get() = "console.st-staging-live.payengine.dev"
         })
 
-        PEPaymentDevice.setHost(stHost)
+        PEPaymentDevice.setHost(PEHost.Sandbox)
         PEPaymentDevice.registerCustomization(object: PECustomization {
             // Control retry
             override fun shouldRetryIfTimeout(): Boolean {
@@ -117,7 +117,13 @@ fun SimpleView(modifier: Modifier = Modifier) {
                 currentStatus =  "✅ Transaction succeeded: ${result.transactionId}"
             }
         } catch (e: PETapError.TransactionFailed) {
-            currentStatus =  "❌ Transaction failed: ${e.result.responseMessage ?: e.result.error?.message}"
+            var errorMessage = "❌ Transaction failed: ${e.result.responseMessage ?: e.result.error?.message}"
+            if (e.result.isInconclusive) {
+                errorMessage += "\n\nUnexpected interruption during your transaction. Please use this idempotency key to retrieve actual transaction status via API: ${e.idempotencyKey}"
+                println("Idempotency Key: ${e.idempotencyKey}")
+            }
+
+            currentStatus = errorMessage
         } catch (e: Throwable) {
             currentStatus =  "❌ PE Flow failed: $e"
         } finally {
@@ -128,7 +134,9 @@ fun SimpleView(modifier: Modifier = Modifier) {
     }
 
 
-    Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
+    Column(modifier = modifier
+        .fillMaxSize()
+        .padding(16.dp)) {
 
         // Title
         Row(modifier = Modifier.padding(top = 30.dp)) {

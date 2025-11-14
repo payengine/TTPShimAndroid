@@ -23,7 +23,7 @@ import kotlin.coroutines.resumeWithException
 sealed class PETapError : Throwable() {
     data class InitializationFailed(val error: Throwable) : PETapError()
     data class ConnectionFailed(val device: PEDevice, val error: Throwable) : PETapError()
-    data class TransactionFailed(val result: PEPaymentResult) : PETapError()
+    data class TransactionFailed(val result: PEPaymentResult, val idempotencyKey: String?) : PETapError()
     object NoAvailableDevice : PETapError()
     data class ActivationRequired(val code: String) : PETapError()
 }
@@ -32,6 +32,8 @@ const val BANNER_NAME = "Test Banner Name"
 
 object PESoftPOSShim {
     private val logger: Logger = Logger.getLogger(PESoftPOSShim::class.java.name)
+
+    private var idempotencyKey: String? = null
 
     fun logMethodCall(vararg params: Any?) {
         val stackTrace = Thread.currentThread().stackTrace
@@ -101,6 +103,7 @@ object PESoftPOSShim {
                 logMethodCall()
             }
         })
+        this.idempotencyKey = request.idempotencyKey
         cont.invokeOnCancellation { deviceDel?.txnCont = null }
     }
 
@@ -180,7 +183,7 @@ object PESoftPOSShim {
         override fun onTransactionFailed(transaction: PEPaymentResult) {
             logMethodCall(transaction)
             logger.info("TxnCont is null ${txnCont == null}")
-            txnCont?.resumeWithException(PETapError.TransactionFailed(transaction))
+            txnCont?.resumeWithException(PETapError.TransactionFailed(transaction, idempotencyKey = PESoftPOSShim.idempotencyKey))
             txnCont = null
         }
 
