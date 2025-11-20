@@ -1,6 +1,6 @@
 [versions]
 agp = "8.8.2"
-peDevicePayment = "1.1.9-alpha.1"
+peDevicePayment = "1.1.9"
 kotlin = "2.2.21"
 coreKtx = "1.16.0"
 junit = "4.13.2"

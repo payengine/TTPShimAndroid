@@ -47,12 +47,17 @@ fun SimpleView(modifier: Modifier = Modifier) {
     suspend fun runTransaction(transactionAmount: String) {
         transactionLoading = true
 
-        val stHost = PEPaymentDevice.newHost(object : FlavorInterface {
+        val stHostStaging = PEPaymentDevice.newHost(object : FlavorInterface {
             override val wssHostname: String get() = "ws.st-staging-live.payengine.dev"
             override val apiHostname: String get() = "console.st-staging-live.payengine.dev"
         })
 
-        PEPaymentDevice.setHost(PEHost.Sandbox)
+        val stHostProd = PEPaymentDevice.newHost(object : FlavorInterface {
+            override val wssHostname: String get() = "ws.payengine-st.com"
+            override val apiHostname: String get() = "gateway.payengine-st.com"
+        })
+
+        PEPaymentDevice.setHost(stHostProd)
         PEPaymentDevice.registerCustomization(object: PECustomization {
             // Control retry
             override fun shouldRetryIfTimeout(): Boolean {
